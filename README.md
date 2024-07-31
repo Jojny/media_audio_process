@@ -65,8 +65,12 @@ bit_depth = "16"      # 例如: 16, 24
 要处理 `videos` 目录中的音频文件，并将结果保存到 `processed_audio` 目录中，可以使用以下命令：
 
 ```sh
-./media_audio_process.sh videos processed_audio
+cd <文件所在目录> && ./media_audio_process.sh ../S01 S03
+cd /cygdrive/d/media_audio_process && ./media_audio_process.sh /cygdrive/d/<input_directory> /cygdrive/d/<output_directory>
 ```
+
+## 目录说明
+- **默认情况下CYGWIN使用的window路径为**: `/cygdrive/d/`
 
 ## 故障排除
 

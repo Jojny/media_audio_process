@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# bin
+FFMPEG_BIN="./libs/ffmpeg/bin/ffmpeg.exe"
+
 # 检查参数是否足够
 if [ "$#" -ne 2 ]; then
     echo "Usage: $0 <input_directory> <output_directory>"
@@ -75,23 +78,55 @@ separate_audio() {
         bit_depth_option="-sample_fmt s16"
     fi
 
-    ffmpeg -i "$input_file" $channel_option $sample_rate_option $bit_depth_option -q:a 0 -map a "$output_audio"
+    ${FFMPEG_BIN} -i "$input_file" $channel_option $sample_rate_option $bit_depth_option -q:a 0 -map a "$output_audio"
 }
 
 # 音频裁剪函数
 cut_audio() {
     local input_audio="$1"
     local output_cut="$2"
-    ffmpeg -i "$input_audio" -ss "$START_TIME" -to "$END_TIME" -c copy "$output_cut"
+    ${FFMPEG_BIN} -i "$input_audio" -ss "$START_TIME" -to "$END_TIME" -c copy "$output_cut"
+}
+
+# 检查是否在 Cygwin 环境中
+is_cygwin() {
+    case "$(uname -s)" in
+        CYGWIN*|MINGW32*|MSYS*|MINGW*)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+# 查找文件函数
+find_files() {
+    local regex_pattern="$1"
+    regex_pattern="${regex_pattern//$'\r'/}"  # 去除回车符
+    local -n files_ref=$2  # 使用命名引用传递数组
+
+    if is_cygwin; then
+        # Cygwin 环境下的 find 命令适配
+        while IFS= read -r -d $'\0' file; do
+            files_ref+=("$(cygpath -w "$file")")  # 转换路径格式为 Windows 风格
+        done < <(find "$INPUT_DIR" -type f -regex ".*\.\($regex_pattern\)" -print0)
+    else
+        # 非 Cygwin 环境
+        while IFS= read -r -d $'\0' file; do
+            files_ref+=("$file")
+        done < <(find "$INPUT_DIR" -type f -regex ".*\.\($regex_pattern\)" -print0)
+    fi
 }
 
 # 处理文件函数
 process_files() {
     local regex_pattern="$1"
+    regex_pattern="${regex_pattern//$'\r'/}"  # 去除回车符
     local files=()
-    while IFS= read -r -d $'\0' file; do
-        files+=("$file")
-    done < <(find "$INPUT_DIR" -type f -regex ".*\.\($regex_pattern\)" -print0)
+    
+    # 查找文件
+    find_files "$regex_pattern" files
     
     for FILE in "${files[@]}"; do
         if [ -f "$FILE" ]; then
@@ -106,6 +141,7 @@ process_files() {
             cut_audio "$OUTPUT_AUDIO" "$OUTPUT_CUT"
         fi
     done
+    echo "Processing completed!"
 }
 
 # 处理所有文件类型
